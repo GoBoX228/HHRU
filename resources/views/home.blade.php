@@ -25,11 +25,48 @@
 
             <nav class="nav">
                 <a href="{{ route('home') }}" class="nav-link">Вакансии</a>
+
+                @if(($currentUser?->role ?? '') === 'freelancer')
+                    <a href="#" class="nav-link">Мои отклики</a>
+                    <a href="#" class="nav-link">Чаты</a>
+                @elseif(($currentUser?->role ?? '') === 'employer')
+                    <a href="#" class="nav-link">Мои вакансии</a>
+                    <a href="#" class="nav-link">Чаты</a>
+                @elseif(($currentUser?->role ?? '') === 'admin')
+                    <a href="#" class="nav-link">Панель админа</a>
+                @endif
             </nav>
 
             <div class="user-menu">
-                <a href="#" class="nav-link">Войти</a>
-                <a href="#" class="btn btn-primary">Регистрация</a>
+                @if($currentUser)
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-medium">{{ $currentUser->name }}</span>
+                        <span class="badge badge-neutral">{{ $currentUser->role }}</span>
+                    </div>
+
+                    @if(($currentUser?->role ?? '') === 'freelancer')
+                        <a href="{{ route('profile') }}" class="btn-icon" title="Мой профиль">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2"></circle>
+                                <path d="M4 20C4 16.6863 7.58172 14 12 14C16.4183 14 20 16.6863 20 20" stroke="currentColor" stroke-width="2"></path>
+                            </svg>
+                        </a>
+                    @endif
+
+                    <form method="POST" action="{{ route('logout') }}">
+                        @csrf
+                        <button type="submit" class="btn-icon" title="Выйти">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <path d="M9 21H5C3.89543 21 3 20.1046 3 19V5C3 3.89543 3.89543 3 5 3H9" stroke="currentColor" stroke-width="2"></path>
+                                <path d="M16 17L21 12L16 7" stroke="currentColor" stroke-width="2"></path>
+                                <path d="M21 12H9" stroke="currentColor" stroke-width="2"></path>
+                            </svg>
+                        </button>
+                    </form>
+                @else
+                    <a href="{{ route('login') }}" class="nav-link">Войти</a>
+                    <a href="{{ route('register') }}" class="btn btn-primary">Регистрация</a>
+                @endif
             </div>
         </div>
     </header>
@@ -77,15 +114,16 @@
                 </div>
             @else
                 @foreach($activeVacancies as $vacancy)
+                    @php
+                        $skills = is_array($vacancy->required_skills) ? $vacancy->required_skills : [];
+                    @endphp
                     <a href="#" class="card card-hover">
                         <div class="flex justify-between items-start">
                             <div>
-                                <h2 class="section-title vacancy-title">
-                                    {{ $vacancy['title'] }}
-                                </h2>
+                                <h2 class="section-title vacancy-title">{{ $vacancy->title }}</h2>
                                 <div class="flex items-center gap-2 text-sm text-muted mb-4">
                                     <span class="company-name">
-                                        {{ $employerProfiles[$vacancy['employer_id']]['company_name'] ?? 'Неизвестная компания' }}
+                                        {{ $vacancy->employerProfile?->company_name ?? 'Неизвестная компания' }}
                                     </span>
                                     <span>•</span>
                                     <span class="flex items-center gap-2">
@@ -93,32 +131,30 @@
                                             <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"></circle>
                                             <path d="M12 7V12L15 14" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
                                         </svg>
-                                        {{ \Carbon\Carbon::parse($vacancy['created_at'])->diffForHumans() }}
+                                        {{ $vacancy->created_at?->diffForHumans() }}
                                     </span>
                                 </div>
                             </div>
 
                             <div class="text-right">
-                                <div class="text-xl">
-                                    {{ number_format($vacancy['budget'], 0, '.', ' ') }} {{ $vacancy['currency'] }}
-                                </div>
+                                <div class="text-xl">{{ number_format((int) $vacancy->budget, 0, '.', ' ') }} {{ $vacancy->currency }}</div>
                             </div>
                         </div>
 
                         <div class="flex gap-2 mb-4 skills-wrap">
-                            <span class="badge badge-primary">{{ $vacancy['specialization'] }}</span>
-                            <span class="badge badge-neutral">{{ $vacancy['required_experience'] }}</span>
+                            <span class="badge badge-primary">{{ $vacancy->specialization }}</span>
+                            <span class="badge badge-neutral">{{ $vacancy->required_experience }}</span>
 
-                            @foreach(collect($vacancy['required_skills'])->take(3) as $skill)
+                            @foreach(array_slice($skills, 0, 3) as $skill)
                                 <span class="badge badge-neutral">{{ $skill }}</span>
                             @endforeach
 
-                            @if(count($vacancy['required_skills']) > 3)
-                                <span class="badge badge-neutral">+{{ count($vacancy['required_skills']) - 3 }} еще</span>
+                            @if(count($skills) > 3)
+                                <span class="badge badge-neutral">+{{ count($skills) - 3 }} еще</span>
                             @endif
                         </div>
 
-                        <p class="text-sm text-muted vacancy-description">{{ $vacancy['description'] }}</p>
+                        <p class="text-sm text-muted vacancy-description">{{ $vacancy->description }}</p>
                     </a>
                 @endforeach
             @endif
