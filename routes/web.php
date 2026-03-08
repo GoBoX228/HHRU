@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\HomePageController;
@@ -18,4 +18,8 @@ Route::middleware('guest')->group(function (): void {
 Route::middleware('auth')->group(function (): void {
     Route::get('/profile', ProfileController::class)->name('profile');
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+});
+
+Route::fallback(function () {
+    return response()->view('errors.404', [], 404);
 });
