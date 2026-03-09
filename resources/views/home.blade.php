@@ -28,12 +28,12 @@
 
                 @if(($currentUser?->role ?? '') === 'freelancer')
                     <a href="#" class="nav-link">Мои отклики</a>
-                    <a href="#" class="nav-link">Чаты</a>
+                    <a href="{{ route('chats') }}" class="nav-link">Чаты</a>
                 @elseif(($currentUser?->role ?? '') === 'employer')
                     <a href="#" class="nav-link">Мои вакансии</a>
-                    <a href="#" class="nav-link">Чаты</a>
+                    <a href="{{ route('chats') }}" class="nav-link">Чаты</a>
                 @elseif(($currentUser?->role ?? '') === 'admin')
-                    <a href="#" class="nav-link">Панель админа</a>
+                    <a href="{{ route('admin.dashboard') }}" class="nav-link">Панель админа</a>
                 @endif
             </nav>
 
