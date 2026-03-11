@@ -1,6 +1,7 @@
 ﻿<?php
 
 use App\Http\Controllers\AdminDashboardController;
+use App\Http\Controllers\ApplicationsController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\ChatsController;
@@ -20,6 +21,8 @@ Route::middleware('guest')->group(function (): void {
 
 Route::middleware('auth')->group(function (): void {
     Route::get('/profile', ProfileController::class)->name('profile');
+    Route::post('/profile', ProfileController::class)->name('profile.update');
+    Route::get('/applications', ApplicationsController::class)->name('applications');
     Route::get('/chats', [ChatsController::class, 'index'])->name('chats');
     Route::get('/chats/{chat}', [ChatController::class, 'show'])->name('chat.show');
     Route::post('/chats/{chat}/messages', [ChatController::class, 'store'])->name('chat.messages.store');

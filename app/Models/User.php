@@ -57,6 +57,11 @@ class User extends Authenticatable
         return $this->hasOne(EmployerProfile::class);
     }
 
+    public function freelancerProfile(): HasOne
+    {
+        return $this->hasOne(FreelancerProfile::class);
+    }
+
     public function vacancies(): HasMany
     {
         return $this->hasMany(Vacancy::class, 'employer_user_id');

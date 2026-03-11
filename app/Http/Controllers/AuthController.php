@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\EmployerProfile;
+use App\Models\FreelancerProfile;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -67,6 +68,12 @@ class AuthController extends Controller
             EmployerProfile::create([
                 'user_id' => $user->id,
                 'company_name' => $data['company_name'] ?? '',
+            ]);
+        } elseif ($data['role'] === 'freelancer') {
+            FreelancerProfile::create([
+                'user_id' => $user->id,
+                'skills' => [],
+                'gender' => 'other',
             ]);
         }
 
