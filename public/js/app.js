@@ -1,5 +1,3 @@
-import './bootstrap';
-
 const initChatPage = () => {
     const chatContainer = document.getElementById('chat-messages');
     const input = document.getElementById('message-input');

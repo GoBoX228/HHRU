@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -56,8 +56,10 @@
                 <div class="error-actions">
                     <a href="{{ route('home') }}" class="btn btn-primary">На главную</a>
 
-                    @if($currentUser)
+                    @if($currentUser && ($currentUser->role ?? '') === 'freelancer')
                         <a href="{{ route('profile') }}" class="btn btn-outline">В профиль</a>
+                    @elseif($currentUser)
+                        <a href="{{ route('home') }}" class="btn btn-outline">На главную</a>
                     @else
                         <a href="{{ route('login') }}" class="btn btn-outline">Войти</a>
                     @endif

@@ -1,14 +1,22 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
-@section('title', $vacancy ? $vacancy['title'] : 'Вакансия')
+@section('title', $vacancy?->title ?? 'Вакансия')
 
 @section('content')
-    @if(!$vacancy || !$employer)
+    @if(! $vacancy)
         <div class="text-center" style="padding: 48px 0;">
             <h2 class="page-title">Вакансия не найдена</h2>
             <a href="{{ route('home') }}" class="btn btn-outline mt-4">На главную</a>
         </div>
     @else
+        @php
+            $companyName = $employer?->company_name ?: 'Компания не указана';
+            $companyField = $employer?->company_field ?: 'Не указано';
+            $companyDescription = $employer?->company_description ?: 'Описание не предоставлено.';
+            $requiredSkills = $vacancy->required_skills;
+            $requiredSkills = is_array($requiredSkills) ? $requiredSkills : [];
+        @endphp
+
         <div style="max-width: 800px; margin: 0 auto;">
             <a href="{{ route('home') }}" class="btn-icon flex items-center gap-2 mb-4 back-link">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -21,29 +29,29 @@
             <div class="card" style="padding: 32px;">
                 <div class="flex justify-between items-start mb-8 responsive-wrap">
                     <div>
-                        <h1 class="page-title" style="margin-bottom: 16px;">{{ $vacancy['title'] }}</h1>
+                        <h1 class="page-title" style="margin-bottom: 16px;">{{ $vacancy->title }}</h1>
                         <div class="flex items-center gap-4 text-sm text-muted wrap-line">
                             <span class="flex items-center gap-2" style="color: var(--text); font-weight: 500;">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                                     <path d="M3 7H21V20H3V7Z" stroke="currentColor" stroke-width="2"></path>
-                                    <path d="M9 7V5C9 3.9 9.9 3 11 3H13C14.1 3 15 3.9 15 5V7" stroke="currentColor" stroke-width="2"></path>
+                                    <path d="M9 7V5C9 3.9 9.9 3 11 3H13C14.1 2 15 2.9 15 5V7" stroke="currentColor" stroke-width="2"></path>
                                 </svg>
-                                {{ $employer['companyName'] }}
+                                {{ $companyName }}
                             </span>
                             <span class="flex items-center gap-2">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                                     <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"></circle>
                                     <path d="M12 7V12L15 14" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
                                 </svg>
-                                Опубликовано {{ \Carbon\Carbon::parse($vacancy['createdAt'])->diffForHumans() }}
+                                Опубликовано {{ $vacancy->created_at?->diffForHumans() }}
                             </span>
-                            <span class="badge badge-primary">{{ strtoupper($vacancy['status']) }}</span>
+                            <span class="badge badge-primary">{{ strtoupper($vacancy->status) }}</span>
                         </div>
                     </div>
 
                     <div class="budget-box">
                         <div class="text-sm text-muted mb-2">Бюджет</div>
-                        <div class="text-2xl">{{ number_format($vacancy['budget'], 0, '.', ' ') }} {{ $vacancy['currency'] }}</div>
+                        <div class="text-2xl">{{ number_format((int) $vacancy->budget, 0, '.', ' ') }} {{ $vacancy->currency }}</div>
                     </div>
                 </div>
 
@@ -51,15 +59,17 @@
                     <div style="grid-column: span 2;">
                         <section class="mb-8">
                             <h3 class="section-title">Описание</h3>
-                            <div style="white-space: pre-wrap; color: var(--text-muted);">{{ $vacancy['description'] }}</div>
+                            <div style="white-space: pre-wrap; color: var(--text-muted);">{{ $vacancy->description }}</div>
                         </section>
 
                         <section>
                             <h3 class="section-title">Требуемые навыки</h3>
                             <div class="flex gap-2 skills-wrap">
-                                @foreach($vacancy['requiredSkills'] as $skill)
+                                @forelse($requiredSkills as $skill)
                                     <span class="badge badge-neutral">{{ $skill }}</span>
-                                @endforeach
+                                @empty
+                                    <span class="text-sm text-muted">Не указаны</span>
+                                @endforelse
                             </div>
                         </section>
                     </div>
@@ -69,11 +79,11 @@
                             <h3 class="text-sm text-muted mb-4 details-heading">Детали работы</h3>
                             <div class="mb-4">
                                 <div class="text-sm text-muted">Специализация</div>
-                                <div class="info-value">{{ $vacancy['specialization'] }}</div>
+                                <div class="info-value">{{ $vacancy->specialization ?: 'Не указана' }}</div>
                             </div>
                             <div>
                                 <div class="text-sm text-muted">Уровень опыта</div>
-                                <div class="info-value">{{ $vacancy['requiredExperience'] }}</div>
+                                <div class="info-value">{{ $vacancy->required_experience ?: 'Не указан' }}</div>
                             </div>
                         </div>
 
@@ -81,19 +91,19 @@
                             <h3 class="text-sm text-muted mb-4 details-heading">О компании</h3>
                             <div class="mb-4">
                                 <div class="text-sm text-muted">Отрасль</div>
-                                <div class="info-value">{{ $employer['companyField'] }}</div>
+                                <div class="info-value">{{ $companyField }}</div>
                             </div>
                             <div>
                                 <div class="text-sm text-muted">Описание</div>
                                 <div style="margin-top: 4px; font-size: 14px; color: var(--text-muted);">
-                                    {{ $employer['companyDescription'] ?: 'Описание не предоставлено.' }}
+                                    {{ $companyDescription }}
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                @if($currentUser && $currentUser['role'] === 'freelancer' && $vacancy['status'] === 'open')
+                @if($currentUser && $currentUser->role === 'freelancer' && $vacancy->status === 'open')
                     <div style="margin-top: 40px; padding-top: 32px; border-top: 1px solid var(--border);">
                         @if($existingApplication)
                             <div class="alert alert-success" style="align-items: flex-start; padding: 24px;">
@@ -102,9 +112,9 @@
                                 </svg>
                                 <div>
                                     <h3 style="font-size: 18px; font-weight: 500; margin-bottom: 4px;">Вы откликнулись на эту позицию</h3>
-                                    <p style="margin-bottom: 8px;">Статус: <strong>{{ $existingApplication['status'] }}</strong></p>
+                                    <p style="margin-bottom: 8px;">Статус: <strong>{{ $existingApplication->status }}</strong></p>
                                     <p class="text-sm" style="opacity: 0.8;">
-                                        Отклик отправлен {{ \Carbon\Carbon::parse($existingApplication['createdAt'])->diffForHumans() }}
+                                        Отклик отправлен {{ $existingApplication->created_at?->diffForHumans() }}
                                     </p>
                                 </div>
                             </div>
@@ -120,7 +130,7 @@
 
                             <form
                                 method="POST"
-                                action="{{ route('vacancies.apply', ['id' => $vacancy['id']]) }}"
+                                action="{{ route('vacancies.apply', ['id' => $vacancy->id]) }}"
                                 id="apply-form"
                                 class="{{ old('coverLetter') ? '' : 'hidden' }}"
                                 style="background: var(--bg); padding: 24px; border-radius: 12px;"
@@ -153,14 +163,13 @@
                     </div>
                 @endif
 
-                @if(!$currentUser)
+                @if(! $currentUser)
                     <div class="text-center" style="margin-top: 40px; padding-top: 32px; border-top: 1px solid var(--border);">
                         <p class="text-muted mb-4">Вам нужно войти как фрилансер, чтобы откликнуться.</p>
-                        <form method="POST" action="{{ route('demo.user.switch') }}" class="flex justify-center gap-4">
-                            @csrf
-                            <input type="hidden" name="user_id" value="3">
-                            <button type="submit" class="btn btn-primary">Войти как фрилансер</button>
-                        </form>
+                        <div class="flex justify-center gap-4">
+                            <a href="{{ route('login') }}" class="btn btn-outline">Войти</a>
+                            <a href="{{ route('register') }}" class="btn btn-primary">Регистрация</a>
+                        </div>
                     </div>
                 @endif
             </div>
@@ -197,3 +206,4 @@
         })();
     </script>
 @endsection
+

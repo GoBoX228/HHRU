@@ -1,9 +1,9 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
 @section('title', 'Мои вакансии')
 
 @section('content')
-    @if(!$currentUser || $currentUser['role'] !== 'employer')
+    @if(! $canAccess)
         <div class="text-center text-muted" style="padding: 48px 0;">
             Доступ запрещен. Только для работодателей.
         </div>
@@ -141,25 +141,26 @@
             @else
                 @foreach($myVacancies as $vacancy)
                     @php
-                        $stats = $applicationsByVacancy[$vacancy['id']] ?? ['total' => 0, 'pending' => 0];
+                        $totalApplications = (int) ($vacancy->applications_count ?? 0);
+                        $pendingApplications = (int) ($vacancy->pending_applications_count ?? 0);
                     @endphp
                     <div class="card card-hover">
                         <div class="flex justify-between items-start responsive-wrap">
                             <div class="flex-grow">
                                 <div class="flex items-center gap-4 mb-2">
-                                    <h2 class="text-xl">{{ $vacancy['title'] }}</h2>
+                                    <h2 class="text-xl">{{ $vacancy->title }}</h2>
                                     <span class="badge
-                                        @if($vacancy['status'] === 'open') badge-success
-                                        @elseif($vacancy['status'] === 'draft') badge-neutral
-                                        @elseif($vacancy['status'] === 'closed') badge-primary
+                                        @if($vacancy->status === 'open') badge-success
+                                        @elseif($vacancy->status === 'draft') badge-neutral
+                                        @elseif($vacancy->status === 'closed') badge-primary
                                         @else badge-danger
                                         @endif
                                     ">
-                                        {{ strtoupper($vacancy['status']) }}
+                                        {{ strtoupper($vacancy->status) }}
                                     </span>
                                 </div>
                                 <div class="text-sm text-muted">
-                                    Создано {{ \Carbon\Carbon::parse($vacancy['createdAt'])->diffForHumans() }}
+                                    Создано {{ $vacancy->created_at?->diffForHumans() }}
                                 </div>
 
                                 <div class="mt-4 flex items-center gap-6">
@@ -170,10 +171,10 @@
                                             <path d="M22 21V19C22 17.5 20.9 16.2 19.5 16" stroke="currentColor" stroke-width="2"></path>
                                             <path d="M16.5 3.1C17.9 3.5 19 4.8 19 6.5C19 8.2 17.9 9.5 16.5 9.9" stroke="currentColor" stroke-width="2"></path>
                                         </svg>
-                                        <span style="font-weight: 500; color: var(--text);">{{ $stats['total'] }}</span> всего откликов
-                                        @if($stats['pending'] > 0)
+                                        <span style="font-weight: 500; color: var(--text);">{{ $totalApplications }}</span> всего откликов
+                                        @if($pendingApplications > 0)
                                             <span class="badge badge-warning" style="margin-left: 8px;">
-                                                {{ $stats['pending'] }} ожидают
+                                                {{ $pendingApplications }} ожидают
                                             </span>
                                         @endif
                                     </div>
@@ -181,20 +182,20 @@
                             </div>
 
                             <div class="flex items-center gap-2 actions-wrap">
-                                <a href="{{ route('employer.applications.index', ['id' => $vacancy['id']]) }}" class="btn btn-outline">
+                                <a href="{{ route('employer.applications.index', ['id' => $vacancy->id]) }}" class="btn btn-outline">
                                     Смотреть отклики
                                 </a>
 
-                                @if($vacancy['status'] === 'draft')
-                                    <form method="POST" action="{{ route('employer.vacancies.status', ['id' => $vacancy['id']]) }}">
+                                @if($vacancy->status === 'draft')
+                                    <form method="POST" action="{{ route('employer.vacancies.status', ['id' => $vacancy->id]) }}">
                                         @csrf
                                         <input type="hidden" name="status" value="open">
                                         <button type="submit" class="btn btn-outline">Опубликовать</button>
                                     </form>
                                 @endif
 
-                                @if($vacancy['status'] === 'open' || $vacancy['status'] === 'draft')
-                                    <form method="POST" action="{{ route('employer.vacancies.status', ['id' => $vacancy['id']]) }}">
+                                @if(in_array($vacancy->status, ['open', 'draft'], true))
+                                    <form method="POST" action="{{ route('employer.vacancies.status', ['id' => $vacancy->id]) }}">
                                         @csrf
                                         <input type="hidden" name="status" value="archived">
                                         <button type="submit" class="btn btn-danger">В архив</button>

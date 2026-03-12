@@ -18,7 +18,6 @@ class AdminDashboardController extends Controller
         Carbon::setLocale('ru');
 
         $currentUser = auth()->user();
-        $canAccess = $currentUser && $currentUser->role === 'admin';
         $activeTab = in_array((string) $request->query('tab'), ['users', 'vacancies'], true)
             ? (string) $request->query('tab')
             : 'users';
@@ -43,7 +42,7 @@ class AdminDashboardController extends Controller
 
         return view('admin-dashboard', [
             'currentUser' => $currentUser,
-            'canAccess' => $canAccess,
+            'canAccess' => true,
             'activeTab' => $activeTab,
             'users' => $users,
             'vacancies' => $vacancies,
@@ -53,28 +52,18 @@ class AdminDashboardController extends Controller
 
     public function toggleUserBlock(User $user): RedirectResponse
     {
-        $currentUser = auth()->user();
+        $this->authorize('toggleBlock', $user);
 
-        if (! $currentUser || $currentUser->role !== 'admin') {
-            abort(403);
-        }
-
-        if ($user->role !== 'admin') {
-            $user->update([
-                'is_blocked' => ! $user->is_blocked,
-            ]);
-        }
+        $user->update([
+            'is_blocked' => ! $user->is_blocked,
+        ]);
 
         return back();
     }
 
     public function archiveVacancy(Vacancy $vacancy): RedirectResponse
     {
-        $currentUser = auth()->user();
-
-        if (! $currentUser || $currentUser->role !== 'admin') {
-            abort(403);
-        }
+        $this->authorize('archive', $vacancy);
 
         if ($vacancy->status !== 'archived') {
             $vacancy->update([

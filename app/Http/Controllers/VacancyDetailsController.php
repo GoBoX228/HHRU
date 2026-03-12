@@ -2,73 +2,84 @@
 
 namespace App\Http\Controllers;
 
-use App\Support\DemoDataStore;
+use App\Http\Requests\Vacancy\ApplyToVacancyRequest;
+use App\Models\Application;
+use App\Models\User;
+use App\Models\Vacancy;
+use App\Notifications\NewApplicationNotification;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class VacancyDetailsController extends Controller
 {
-    public function __construct(private readonly DemoDataStore $store)
-    {
-    }
-
-    public function show(Request $request, string $id): View
+    public function show(string $id): View
     {
         Carbon::setLocale('ru');
 
-        $state = $this->store->getState($request);
-        $currentUser = $this->store->getCurrentUser($request, $state);
-
-        $vacancy = collect($state['vacancies'])->first(fn (array $row) => $row['id'] === $id);
-        $employer = $vacancy ? ($state['employerProfiles'][$vacancy['employerId']] ?? null) : null;
+        $currentUser = auth()->user();
+        $vacancy = Vacancy::query()
+            ->with('employerProfile')
+            ->find($id);
 
         $existingApplication = null;
-        if ($currentUser && $currentUser['role'] === 'freelancer') {
-            $existingApplication = collect($state['applications'])->first(
-                fn (array $row) => $row['vacancyId'] === $id && $row['freelancerId'] === $currentUser['id']
-            );
+
+        if ($vacancy && $currentUser?->role === 'freelancer') {
+            $existingApplication = Application::query()
+                ->where('vacancy_id', $vacancy->id)
+                ->where('freelancer_user_id', $currentUser->id)
+                ->first();
         }
 
         return view('vacancies.show', [
             'currentUser' => $currentUser,
             'vacancy' => $vacancy,
-            'employer' => $employer,
+            'employer' => $vacancy?->employerProfile,
             'existingApplication' => $existingApplication,
-            'users' => collect($state['users'])->keyBy('id'),
         ]);
     }
 
-    public function apply(Request $request, string $id): RedirectResponse
+    public function apply(ApplyToVacancyRequest $request, string $id): RedirectResponse
     {
-        $state = $this->store->getState($request);
-        $currentUser = $this->store->getCurrentUser($request, $state);
-        if (!$currentUser || $currentUser['role'] !== 'freelancer') {
-            return back()->with('error', 'Откликаться могут только фрилансеры.');
-        }
+        $currentUser = auth()->user();
 
-        $vacancy = collect($state['vacancies'])->first(fn (array $row) => $row['id'] === $id);
-        if (!$vacancy) {
+        $vacancy = Vacancy::query()->find($id);
+
+        if (! $vacancy) {
             return back()->with('error', 'Вакансия не найдена.');
         }
 
-        if ($vacancy['status'] !== 'open') {
-            return back()->with('error', 'Эта вакансия уже закрыта для откликов.');
+        $this->authorize('apply', $vacancy);
+
+        $coverLetter = $request->validated('coverLetter');
+
+        $application = Application::query()->firstOrCreate(
+            [
+                'vacancy_id' => $vacancy->id,
+                'freelancer_user_id' => $currentUser->id,
+            ],
+            [
+                'cover_letter' => $coverLetter,
+                'status' => 'pending',
+            ]
+        );
+
+        if (! $application->wasRecentlyCreated) {
+            return back()->with('error', 'Вы уже откликались на эту вакансию.');
         }
 
-        $validated = $request->validate([
-            'coverLetter' => ['required', 'string', 'max:1000'],
-        ]);
+        $employer = User::query()->find((int) $vacancy->employer_user_id);
 
-        $this->store->applyToVacancy($request, [
-            'vacancyId' => $id,
-            'freelancerId' => $currentUser['id'],
-            'coverLetter' => $validated['coverLetter'],
-        ]);
+        if ($employer && ! $employer->is_blocked) {
+            $employer->notify(new NewApplicationNotification(
+                vacancyTitle: (string) $vacancy->title,
+                freelancerName: (string) $currentUser->name,
+                applicationsUrl: route('employer.applications.index', ['id' => $vacancy->id]),
+            ));
+        }
 
         return redirect()
-            ->route('vacancies.show', ['id' => $id])
+            ->route('vacancies.show', ['id' => $vacancy->id])
             ->with('success', 'Отклик отправлен.');
     }
 }

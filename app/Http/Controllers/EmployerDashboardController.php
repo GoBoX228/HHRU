@@ -2,76 +2,49 @@
 
 namespace App\Http\Controllers;
 
-use App\Support\DemoDataStore;
+use App\Http\Requests\Employer\StoreVacancyRequest;
+use App\Http\Requests\Employer\UpdateVacancyStatusRequest;
+use App\Models\Vacancy;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class EmployerDashboardController extends Controller
 {
-    public function __construct(private readonly DemoDataStore $store)
-    {
-    }
-
-    public function index(Request $request): View
+    public function index(): View
     {
         Carbon::setLocale('ru');
 
-        $state = $this->store->getState($request);
-        $currentUser = $this->store->getCurrentUser($request, $state);
-        $myVacancies = collect($state['vacancies'])
-            ->filter(fn (array $vacancy) => $currentUser && $vacancy['employerId'] === $currentUser['id'])
-            ->sortByDesc('createdAt')
-            ->values();
+        $currentUser = auth()->user();
 
-        $applicationsByVacancy = collect($state['applications'])
-            ->groupBy('vacancyId')
-            ->map(fn ($apps) => [
-                'total' => $apps->count(),
-                'pending' => $apps->where('status', 'pending')->count(),
-            ]);
+        $myVacancies = Vacancy::query()
+            ->where('employer_user_id', $currentUser->id)
+            ->withCount([
+                'applications',
+                'applications as pending_applications_count' => static fn ($query) => $query
+                    ->where('status', 'pending'),
+            ])
+            ->latest()
+            ->get();
 
         return view('employer.dashboard', [
             'currentUser' => $currentUser,
+            'canAccess' => true,
             'myVacancies' => $myVacancies,
-            'applicationsByVacancy' => $applicationsByVacancy,
-            'users' => collect($state['users'])->keyBy('id'),
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreVacancyRequest $request): RedirectResponse
     {
-        $state = $this->store->getState($request);
-        $currentUser = $this->store->getCurrentUser($request, $state);
-        if (!$currentUser || $currentUser['role'] !== 'employer') {
-            return back()->with('error', 'Доступ запрещен. Только для работодателей.');
-        }
+        $currentUser = auth()->user();
+        $validated = $request->validated();
 
-        $validated = $request->validate([
-            'title' => ['required', 'string', 'max:150'],
-            'specialization' => ['required', 'string', 'max:120'],
-            'requiredSkills' => ['nullable', 'string', 'max:500'],
-            'requiredExperience' => ['required', 'string', 'max:60'],
-            'description' => ['required', 'string', 'max:3000'],
-            'budget' => ['required', 'integer', 'min:0'],
-            'currency' => ['required', 'in:RUB,USD,EUR'],
-            'status' => ['required', 'in:draft,open'],
-        ]);
-
-        $skills = collect(explode(',', (string) $validated['requiredSkills']))
-            ->map(fn (string $skill) => trim($skill))
-            ->filter()
-            ->take(20)
-            ->values()
-            ->all();
-
-        $this->store->createVacancy($request, [
-            'employerId' => $currentUser['id'],
+        Vacancy::query()->create([
+            'employer_user_id' => $currentUser->id,
             'title' => $validated['title'],
             'specialization' => $validated['specialization'],
-            'requiredSkills' => $skills,
-            'requiredExperience' => $validated['requiredExperience'],
+            'required_skills' => $request->parsedSkills(),
+            'required_experience' => $validated['requiredExperience'],
             'description' => $validated['description'],
             'budget' => (int) $validated['budget'],
             'currency' => $validated['currency'],
@@ -83,26 +56,24 @@ class EmployerDashboardController extends Controller
             ->with('success', 'Вакансия создана.');
     }
 
-    public function updateStatus(Request $request, string $id): RedirectResponse
+    public function updateStatus(UpdateVacancyStatusRequest $request, string $id): RedirectResponse
     {
-        $state = $this->store->getState($request);
-        $currentUser = $this->store->getCurrentUser($request, $state);
-        if (!$currentUser || $currentUser['role'] !== 'employer') {
-            return back()->with('error', 'Доступ запрещен. Только для работодателей.');
-        }
+        $currentUser = auth()->user();
 
-        $validated = $request->validate([
-            'status' => ['required', 'in:open,archived'],
-        ]);
+        $vacancy = Vacancy::query()
+            ->where('id', $id)
+            ->where('employer_user_id', $currentUser->id)
+            ->first();
 
-        $vacancy = collect($state['vacancies'])->first(
-            fn (array $row) => $row['id'] === $id && $row['employerId'] === $currentUser['id']
-        );
-        if (!$vacancy) {
+        if (! $vacancy) {
             return back()->with('error', 'Вакансия не найдена.');
         }
 
-        $this->store->updateVacancyStatus($request, $id, $validated['status']);
+        $this->authorize('updateStatus', $vacancy);
+
+        $vacancy->update([
+            'status' => $request->validated('status'),
+        ]);
 
         return back()->with('success', 'Статус вакансии обновлен.');
     }

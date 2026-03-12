@@ -1,77 +1,69 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Профиль | Za_raboty</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ asset('css/home.css') }}">
-</head>
-<body>
-<div class="app-wrapper">
-    <header class="header">
-        <div class="container header-content">
-            <a href="{{ route('home') }}" class="logo">
-                <div class="logo-icon">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                        <path d="M3 7H21V20H3V7Z" stroke="currentColor" stroke-width="2"></path>
-                        <path d="M9 7V5C9 3.89543 9.89543 3 11 3H13C14.1046 3 15 3.89543 15 5V7" stroke="currentColor" stroke-width="2"></path>
-                    </svg>
-                </div>
-                IT-Проекты
-            </a>
-
-            <nav class="nav">
-                <a href="{{ route('home') }}" class="nav-link">Вакансии</a>
-
-                @if(($currentUser?->role ?? '') === 'freelancer')
-                    <a href="{{ route('applications') }}" class="nav-link">Мои отклики</a>
-                    <a href="{{ route('chats') }}" class="nav-link">Чаты</a>
-                @elseif(($currentUser?->role ?? '') === 'employer')
-                    <a href="#" class="nav-link">Мои вакансии</a>
-                    <a href="{{ route('chats') }}" class="nav-link">Чаты</a>
-                @elseif(($currentUser?->role ?? '') === 'admin')
-                    <a href="{{ route('admin.dashboard') }}" class="nav-link">Панель админа</a>
-                @endif
-            </nav>
-
-            <div class="user-menu">
-                <div class="flex items-center gap-2">
-                    <span class="text-sm font-medium">{{ $currentUser->name }}</span>
-                    <span class="badge badge-neutral">{{ $currentUser->role }}</span>
-                </div>
-
-                @if(($currentUser?->role ?? '') === 'freelancer')
-                    <a href="{{ route('profile') }}" class="btn-icon" title="Мой профиль">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                            <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2"></circle>
-                            <path d="M4 20C4 16.6863 7.58172 14 12 14C16.4183 14 20 16.6863 20 20" stroke="currentColor" stroke-width="2"></path>
-                        </svg>
-                    </a>
-                @endif
-
-                <form method="POST" action="{{ route('logout') }}">
-                    @csrf
-                    <button type="submit" class="btn-icon" title="Выйти">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                            <path d="M9 21H5C3.89543 21 3 20.1046 3 19V5C3 3.89543 3.89543 3 5 3H9" stroke="currentColor" stroke-width="2"></path>
-                            <path d="M16 17L21 12L16 7" stroke="currentColor" stroke-width="2"></path>
-                            <path d="M21 12H9" stroke="currentColor" stroke-width="2"></path>
-                        </svg>
-                    </button>
-                </form>
-            </div>
-        </div>
-    </header>
-
-    <main class="main-content container">
-        @if(($currentUser?->role ?? '') !== 'freelancer')
+@extends('layouts.app')
+@section('title', 'Profile')
+@section('content')
+@if(($currentUser?->role ?? '') !== 'freelancer')
             <div class="text-center text-muted access-state">Доступ запрещен. Только для фрилансеров.</div>
         @else
             @php
                 $skills = collect($profile?->skills ?? [])->filter()->values();
+                $skillsInputValue = old('skills', $skills->implode(', '));
+                $selectedEditSkills = collect(explode(',', (string) $skillsInputValue))
+                    ->map(static fn (string $skill): string => trim($skill))
+                    ->filter()
+                    ->unique()
+                    ->take(20)
+                    ->values();
+                $availableSpecializations = [
+                    'Frontend разработчик',
+                    'Backend разработчик',
+                    'Fullstack разработчик',
+                    'Mobile разработчик',
+                    'DevOps инженер',
+                    'QA инженер',
+                    'UI/UX дизайнер',
+                    'Data Analyst',
+                    'Data Scientist',
+                    'Project Manager',
+                    'Product Manager',
+                    'Бизнес-аналитик',
+                    'Системный администратор',
+                    'Кибербезопасность',
+                ];
+                $selectedSpecialization = old('specialization', $profile?->specialization ?? '');
+                $availableSkills = [
+                    'PHP',
+                    'Laravel',
+                    'JavaScript',
+                    'TypeScript',
+                    'React',
+                    'Vue.js',
+                    'Node.js',
+                    'HTML',
+                    'CSS',
+                    'Tailwind CSS',
+                    'Sass',
+                    'Bootstrap',
+                    'MySQL',
+                    'PostgreSQL',
+                    'SQLite',
+                    'Redis',
+                    'REST API',
+                    'GraphQL',
+                    'Docker',
+                    'Git',
+                    'Linux',
+                    'Nginx',
+                    'Apache',
+                    'Python',
+                    'Django',
+                    'Java',
+                    'Spring',
+                    'C#',
+                    '.NET',
+                    'Go',
+                    'DevOps',
+                    'CI/CD',
+                ];
                 $birthDateValue = $profile?->birth_date?->format('Y-m-d') ?? '';
                 $genderValue = $profile?->gender ?? 'other';
                 $genderLabel = match($genderValue) {
@@ -132,12 +124,24 @@
                         </div>
                     </div>
 
-                    <form method="POST" action="{{ route('profile.update') }}" class="hidden" data-profile-edit-form>
+                    <form method="POST" action="{{ route('profile.update') }}" class="hidden" data-profile-edit-form data-open-on-load="{{ $errors->any() ? '1' : '0' }}">
                         @csrf
                         <div class="grid grid-cols-2 gap-6 mb-6">
                             <div class="form-group">
                                 <label for="specialization" class="form-label">Специализация</label>
-                                <input id="specialization" type="text" name="specialization" required value="{{ old('specialization', $profile?->specialization ?? '') }}" class="form-control" placeholder="например, Frontend разработчик">
+                                <select id="specialization" name="specialization" required class="form-control">
+                                    <option value="">Выберите специализацию...</option>
+                                    @foreach($availableSpecializations as $specializationOption)
+                                        <option value="{{ $specializationOption }}" @selected($selectedSpecialization === $specializationOption)>
+                                            {{ $specializationOption }}
+                                        </option>
+                                    @endforeach
+                                    @if($selectedSpecialization !== '' && !in_array($selectedSpecialization, $availableSpecializations, true))
+                                        <option value="{{ $selectedSpecialization }}" selected>
+                                            {{ $selectedSpecialization }}
+                                        </option>
+                                    @endif
+                                </select>
                             </div>
                             <div class="form-group">
                                 <label for="experience" class="form-label">Уровень опыта</label>
@@ -163,8 +167,45 @@
                         </div>
 
                         <div class="form-group mb-6">
-                            <label for="skills" class="form-label">Навыки (через запятую, макс. 20)</label>
-                            <input id="skills" type="text" name="skills" value="{{ old('skills', $skills->implode(', ')) }}" class="form-control" placeholder="React, TypeScript, Node.js...">
+                            <label for="skill-select" class="form-label">Навыки (макс. 20)</label>
+                            <div class="skills-picker">
+                                <select id="skill-select" class="form-control" data-skill-select>
+                                    <option value="">Выберите навык...</option>
+                                    @foreach($availableSkills as $skillOption)
+                                        <option value="{{ $skillOption }}">{{ $skillOption }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <input
+                                id="skills"
+                                type="hidden"
+                                name="skills"
+                                value="{{ $selectedEditSkills->implode(', ') }}"
+                                data-skills-input
+                            >
+
+                            <div class="skills-selected mt-2" data-skills-selected>
+                                @if($selectedEditSkills->isNotEmpty())
+                                    @foreach($selectedEditSkills as $selectedSkill)
+                                        <span class="badge badge-primary skill-chip">
+                                            {{ $selectedSkill }}
+                                            <button
+                                                type="button"
+                                                class="skill-chip-remove"
+                                                data-skill-remove="{{ $selectedSkill }}"
+                                                aria-label="Удалить навык {{ $selectedSkill }}"
+                                            >
+                                                &times;
+                                            </button>
+                                        </span>
+                                    @endforeach
+                                @else
+                                    <span class="text-sm text-muted" data-skills-empty>
+                                        Навыки не выбраны
+                                    </span>
+                                @endif
+                            </div>
                         </div>
 
                         <div class="form-group mb-8">
@@ -249,40 +290,4 @@
                 </div>
             </div>
         @endif
-    </main>
-</div>
-<script>
-    (() => {
-        const openButton = document.querySelector('[data-profile-edit-open]');
-        const cancelButton = document.querySelector('[data-profile-edit-cancel]');
-        const editForm = document.querySelector('[data-profile-edit-form]');
-        const viewBlock = document.querySelector('[data-profile-view]');
-        const aboutInput = document.querySelector('[data-about-input]');
-        const aboutCounter = document.querySelector('[data-about-counter]');
-
-        if (aboutInput && aboutCounter) {
-            aboutInput.addEventListener('input', () => {
-                aboutCounter.textContent = String(aboutInput.value.length);
-            });
-        }
-
-        if (!openButton || !cancelButton || !editForm || !viewBlock) {
-            return;
-        }
-
-        const shouldOpenEdit = {{ $errors->any() ? 'true' : 'false' }};
-
-        const setEditingState = (isEditing) => {
-            editForm.classList.toggle('hidden', !isEditing);
-            viewBlock.classList.toggle('hidden', isEditing);
-            openButton.classList.toggle('hidden', isEditing);
-        };
-
-        openButton.addEventListener('click', () => setEditingState(true));
-        cancelButton.addEventListener('click', () => setEditingState(false));
-
-        setEditingState(shouldOpenEdit);
-    })();
-</script>
-</body>
-</html>
+@endsection

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -142,7 +142,26 @@
                         </div>
                     </div>
 
-                    <div class="form-group mb-8">
+                    <div id="company-direction-field" class="form-group {{ $selectedRole === 'employer' ? '' : 'hidden' }}">
+                        <label for="company_field" class="form-label">Направление компании</label>
+                        <div class="input-wrap">
+                            <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <path d="M4 6H20V18H4V6Z" stroke="currentColor" stroke-width="2"></path>
+                                <path d="M9 6V4H15V6" stroke="currentColor" stroke-width="2"></path>
+                                <path d="M8 10H16" stroke="currentColor" stroke-width="2"></path>
+                            </svg>
+                            <input
+                                id="company_field"
+                                name="company_field"
+                                type="text"
+                                value="{{ old('company_field') }}"
+                                class="form-control input-with-icon"
+                                placeholder="Например, FinTech"
+                            >
+                        </div>
+                    </div>
+
+                    <div class="form-group">
                         <label for="password" class="form-label">Пароль</label>
                         <div class="input-wrap">
                             <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -152,6 +171,24 @@
                             <input
                                 id="password"
                                 name="password"
+                                type="password"
+                                required
+                                class="form-control input-with-icon"
+                                placeholder="••••••••"
+                            >
+                        </div>
+                    </div>
+
+                    <div class="form-group mb-8">
+                        <label for="password_confirmation" class="form-label">Подтверждение пароля</label>
+                        <div class="input-wrap">
+                            <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <rect x="4" y="11" width="16" height="10" rx="2" stroke="currentColor" stroke-width="2"></rect>
+                                <path d="M8 11V8C8 5.79086 9.79086 4 12 4C14.2091 4 16 5.79086 16 8V11" stroke="currentColor" stroke-width="2"></path>
+                            </svg>
+                            <input
+                                id="password_confirmation"
+                                name="password_confirmation"
                                 type="password"
                                 required
                                 class="form-control input-with-icon"
@@ -171,7 +208,9 @@
         const tabs = document.querySelectorAll('[data-role]');
         const roleInput = document.getElementById('role');
         const companyField = document.getElementById('company-field');
-        const companyInput = document.getElementById('company_name');
+        const companyNameInput = document.getElementById('company_name');
+        const companyDirectionField = document.getElementById('company-direction-field');
+        const companyFieldInput = document.getElementById('company_field');
 
         const setRole = (role) => {
             roleInput.value = role;
@@ -182,7 +221,9 @@
 
             const isEmployer = role === 'employer';
             companyField.classList.toggle('hidden', !isEmployer);
-            companyInput.toggleAttribute('required', isEmployer);
+            companyDirectionField.classList.toggle('hidden', !isEmployer);
+            companyNameInput.toggleAttribute('required', isEmployer);
+            companyFieldInput.toggleAttribute('required', isEmployer);
         };
 
         tabs.forEach((tab) => {

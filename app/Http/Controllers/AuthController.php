@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Requests\Auth\RegisterRequest;
 use App\Models\EmployerProfile;
 use App\Models\FreelancerProfile;
 use App\Models\User;
@@ -18,25 +20,22 @@ class AuthController extends Controller
         return view('auth.login');
     }
 
-    public function login(Request $request): RedirectResponse
+    public function login(LoginRequest $request): RedirectResponse
     {
-        $credentials = $request->validate([
-            'email' => ['required', 'email'],
-            'password' => ['required', 'string'],
-        ]);
+        $credentials = $request->validated();
 
-        $user = User::where('email', $credentials['email'])->first();
+        $user = User::query()->where('email', $credentials['email'])->first();
 
         if (! $user || ! Hash::check($credentials['password'], $user->password) || $user->is_blocked) {
             return back()
                 ->withInput(['email' => $credentials['email']])
-                ->with('auth_error', 'Неверные учетные данные или аккаунт заблокирован');
+                ->with('auth_error', 'Неверные учетные данные или аккаунт заблокирован.');
         }
 
-        Auth::login($user, (bool) $request->boolean('remember'));
+        Auth::login($user, (bool) ($credentials['remember'] ?? false));
         $request->session()->regenerate();
 
-        return redirect()->route('profile');
+        return $this->redirectAfterAuth($user);
     }
 
     public function showRegister(): View
@@ -44,18 +43,11 @@ class AuthController extends Controller
         return view('auth.register');
     }
 
-    public function register(Request $request): RedirectResponse
+    public function register(RegisterRequest $request): RedirectResponse
     {
-        $data = $request->validate([
-            'role' => ['required', 'in:freelancer,employer'],
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
-            'phone' => ['required', 'string', 'max:50'],
-            'company_name' => ['required_if:role,employer', 'nullable', 'string', 'max:255'],
-            'password' => ['required', 'string', 'min:6'],
-        ]);
+        $data = $request->validated();
 
-        $user = User::create([
+        $user = User::query()->create([
             'name' => $data['name'],
             'email' => $data['email'],
             'password' => $data['password'],
@@ -65,12 +57,15 @@ class AuthController extends Controller
         ]);
 
         if ($data['role'] === 'employer') {
-            EmployerProfile::create([
+            EmployerProfile::query()->create([
                 'user_id' => $user->id,
                 'company_name' => $data['company_name'] ?? '',
+                'company_field' => $data['company_field'] ?? null,
             ]);
-        } elseif ($data['role'] === 'freelancer') {
-            FreelancerProfile::create([
+        }
+
+        if ($data['role'] === 'freelancer') {
+            FreelancerProfile::query()->create([
                 'user_id' => $user->id,
                 'skills' => [],
                 'gender' => 'other',
@@ -80,7 +75,7 @@ class AuthController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
 
-        return redirect()->route('profile');
+        return $this->redirectAfterAuth($user);
     }
 
     public function logout(Request $request): RedirectResponse
@@ -91,5 +86,14 @@ class AuthController extends Controller
         $request->session()->regenerateToken();
 
         return redirect()->route('login');
+    }
+
+    private function redirectAfterAuth(User $user): RedirectResponse
+    {
+        return match ($user->role) {
+            'employer' => redirect()->route('employer.dashboard'),
+            'admin' => redirect()->route('admin.dashboard'),
+            default => redirect()->route('profile'),
+        };
     }
 }

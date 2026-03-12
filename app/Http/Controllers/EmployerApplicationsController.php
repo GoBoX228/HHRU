@@ -2,81 +2,121 @@
 
 namespace App\Http\Controllers;
 
-use App\Support\DemoDataStore;
+use App\Http\Requests\Employer\UpdateApplicationStatusRequest;
+use App\Models\Application;
+use App\Models\Chat;
+use App\Models\User;
+use App\Models\Vacancy;
+use App\Notifications\ApplicationAcceptedNotification;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class EmployerApplicationsController extends Controller
 {
-    public function __construct(private readonly DemoDataStore $store)
-    {
-    }
-
-    public function index(Request $request, string $id): View
+    public function index(string $id): View
     {
         Carbon::setLocale('ru');
 
-        $state = $this->store->getState($request);
-        $currentUser = $this->store->getCurrentUser($request, $state);
+        $currentUser = auth()->user();
 
-        $vacancy = null;
-        if ($currentUser && $currentUser['role'] === 'employer') {
-            $vacancy = collect($state['vacancies'])->first(
-                fn (array $row) => $row['id'] === $id && $row['employerId'] === $currentUser['id']
-            );
+        $vacancy = Vacancy::query()
+            ->where('id', $id)
+            ->where('employer_user_id', $currentUser->id)
+            ->first();
+
+        if (! $vacancy) {
+            abort(404);
         }
 
-        $vacancyApps = collect($state['applications'])
-            ->filter(fn (array $application) => $vacancy && $application['vacancyId'] === $vacancy['id'])
-            ->sortByDesc('createdAt')
-            ->values();
+        $this->authorize('manageApplications', $vacancy);
 
-        $usersById = collect($state['users'])->keyBy('id');
-        $profiles = $state['freelancerProfiles'];
+        $vacancyApps = Application::query()
+            ->with(['freelancer.freelancerProfile'])
+            ->where('vacancy_id', $vacancy->id)
+            ->latest()
+            ->get();
 
         return view('employer.applications', [
             'currentUser' => $currentUser,
+            'canAccess' => true,
             'vacancy' => $vacancy,
             'vacancyApps' => $vacancyApps,
-            'usersById' => $usersById,
-            'profiles' => $profiles,
-            'users' => $usersById,
         ]);
     }
 
-    public function updateStatus(Request $request, string $vacancyId, string $applicationId): RedirectResponse
+    public function updateStatus(UpdateApplicationStatusRequest $request, string $vacancyId, string $applicationId): RedirectResponse
     {
-        $state = $this->store->getState($request);
-        $currentUser = $this->store->getCurrentUser($request, $state);
-        if (!$currentUser || $currentUser['role'] !== 'employer') {
-            return back()->with('error', 'Доступ запрещен. Только для работодателей.');
-        }
+        $currentUser = auth()->user();
 
-        $validated = $request->validate([
-            'status' => ['required', 'in:accepted,rejected'],
-        ]);
+        $vacancy = Vacancy::query()
+            ->where('id', $vacancyId)
+            ->where('employer_user_id', $currentUser->id)
+            ->first();
 
-        $vacancy = collect($state['vacancies'])->first(
-            fn (array $row) => $row['id'] === $vacancyId && $row['employerId'] === $currentUser['id']
-        );
-        if (!$vacancy) {
+        if (! $vacancy) {
             return back()->with('error', 'Вакансия не найдена.');
         }
 
-        $application = collect($state['applications'])->first(
-            fn (array $row) => $row['id'] === $applicationId && $row['vacancyId'] === $vacancyId
-        );
-        if (!$application) {
+        $this->authorize('manageApplications', $vacancy);
+
+        $application = Application::query()
+            ->where('id', $applicationId)
+            ->where('vacancy_id', $vacancy->id)
+            ->first();
+
+        if (! $application) {
             return back()->with('error', 'Отклик не найден.');
         }
 
-        $this->store->updateApplicationStatus($request, $applicationId, $validated['status']);
+        if ($application->status !== 'pending') {
+            return back()->with('error', 'Статус этого отклика уже изменен.');
+        }
+
+        $status = $request->validated('status');
+        $acceptedChat = null;
+
+        DB::transaction(function () use ($status, $application, $vacancy, &$acceptedChat): void {
+            $application->update([
+                'status' => $status,
+            ]);
+
+            if ($status !== 'accepted') {
+                return;
+            }
+
+            $vacancy->update([
+                'status' => 'closed',
+            ]);
+
+            Application::query()
+                ->where('vacancy_id', $vacancy->id)
+                ->where('id', '!=', $application->id)
+                ->where('status', 'pending')
+                ->update(['status' => 'rejected']);
+
+            $acceptedChat = Chat::query()->firstOrCreate([
+                'vacancy_id' => $vacancy->id,
+                'employer_user_id' => $vacancy->employer_user_id,
+                'freelancer_user_id' => $application->freelancer_user_id,
+            ]);
+        });
+
+        if ($status === 'accepted') {
+            $freelancer = User::query()->find((int) $application->freelancer_user_id);
+
+            if ($freelancer && ! $freelancer->is_blocked) {
+                $freelancer->notify(new ApplicationAcceptedNotification(
+                    vacancyTitle: (string) $vacancy->title,
+                    chatUrl: route('chat.show', ['chat' => $acceptedChat?->id]),
+                ));
+            }
+        }
 
         return back()->with(
             'success',
-            $validated['status'] === 'accepted'
+            $status === 'accepted'
                 ? 'Кандидат принят. Вакансия закрыта, остальные отклики отклонены.'
                 : 'Отклик отклонен.'
         );

@@ -1,13 +1,13 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
 @section('title', 'Отклики работодателя')
 
 @section('content')
-    @if(!$currentUser || $currentUser['role'] !== 'employer')
+    @if(! $canAccess)
         <div class="text-center text-muted" style="padding: 48px 0;">
             Доступ запрещен. Только для работодателей.
         </div>
-    @elseif(!$vacancy)
+    @elseif(! $vacancy)
         <div class="text-center" style="padding: 48px 0;">
             <h2 class="page-title">Вакансия не найдена</h2>
             <a href="{{ route('employer.dashboard') }}" class="btn btn-outline mt-4">Назад к вакансиям</a>
@@ -23,7 +23,7 @@
             </a>
 
             <div class="mb-8">
-                <h1 class="page-title">Отклики на {{ $vacancy['title'] }}</h1>
+                <h1 class="page-title">Отклики на {{ $vacancy->title }}</h1>
                 <p class="page-subtitle">Просматривайте и управляйте кандидатами.</p>
             </div>
 
@@ -38,26 +38,29 @@
                         <p class="text-muted">Кандидаты появятся здесь, когда откликнутся.</p>
                     </div>
                 @else
-                    @foreach($vacancyApps as $app)
+                    @foreach($vacancyApps as $application)
                         @php
-                            $freelancer = $usersById[$app['freelancerId']] ?? null;
-                            $profile = $profiles[$app['freelancerId']] ?? null;
+                            $freelancer = $application->freelancer;
+                            $profile = $freelancer?->freelancerProfile;
+                            $skills = $profile?->skills;
+                            $skills = is_array($skills) ? $skills : [];
                         @endphp
-                        @if($freelancer && $profile)
+
+                        @if($freelancer)
                             <div class="card">
                                 <div class="flex justify-between items-start application-wrap">
                                     <div class="flex-grow">
                                         <div class="flex items-center gap-4 mb-6">
-                                            <div class="avatar">{{ mb_substr($freelancer['name'], 0, 1) }}</div>
+                                            <div class="avatar">{{ mb_substr($freelancer->name, 0, 1) }}</div>
                                             <div>
-                                                <h3 class="text-xl" style="font-weight: 700;">{{ $freelancer['name'] }}</h3>
+                                                <h3 class="text-xl" style="font-weight: 700;">{{ $freelancer->name }}</h3>
                                                 <div class="flex items-center gap-2 text-sm text-muted wrap-line">
                                                     <span class="flex items-center gap-2">
                                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                                                             <path d="M9 6V4C9 2.9 9.9 2 11 2H13C14.1 2 15 2.9 15 4V6" stroke="currentColor" stroke-width="2"></path>
                                                             <path d="M3 6H21V20H3V6Z" stroke="currentColor" stroke-width="2"></path>
                                                         </svg>
-                                                        {{ $profile['specialization'] }}
+                                                        {{ $profile?->specialization ?: 'Специализация не указана' }}
                                                     </span>
                                                     <span>•</span>
                                                     <span class="flex items-center gap-2">
@@ -65,7 +68,7 @@
                                                             <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"></circle>
                                                             <path d="M12 7V12L15 14" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
                                                         </svg>
-                                                        Отклик отправлен {{ \Carbon\Carbon::parse($app['createdAt'])->diffForHumans() }}
+                                                        Отклик отправлен {{ $application->created_at?->diffForHumans() }}
                                                     </span>
                                                 </div>
                                             </div>
@@ -74,20 +77,22 @@
                                         <div class="flex flex-col gap-4">
                                             <div>
                                                 <h4 class="text-sm" style="font-weight: 600; margin-bottom: 8px;">Сопроводительное письмо</h4>
-                                                <p class="text-sm text-muted cover-letter-box">{{ $app['coverLetter'] }}</p>
+                                                <p class="text-sm text-muted cover-letter-box">{{ $application->cover_letter ?: 'Не указано' }}</p>
                                             </div>
 
                                             <div class="grid grid-cols-2 gap-4">
                                                 <div>
                                                     <h4 class="text-sm" style="font-weight: 600; margin-bottom: 4px;">Опыт</h4>
-                                                    <p class="text-sm text-muted">{{ $profile['experience'] }}</p>
+                                                    <p class="text-sm text-muted">{{ $profile?->experience ?: 'Не указан' }}</p>
                                                 </div>
                                                 <div>
                                                     <h4 class="text-sm" style="font-weight: 600; margin-bottom: 4px;">Навыки</h4>
                                                     <div class="flex gap-2 skills-wrap">
-                                                        @foreach($profile['skills'] as $skill)
+                                                        @forelse($skills as $skill)
                                                             <span class="badge badge-primary badge-sm">{{ $skill }}</span>
-                                                        @endforeach
+                                                        @empty
+                                                            <span class="text-sm text-muted">Не указаны</span>
+                                                        @endforelse
                                                     </div>
                                                 </div>
                                             </div>
@@ -96,18 +101,18 @@
 
                                     <div class="flex flex-col items-end gap-4 app-status-col">
                                         <div class="badge
-                                            @if($app['status'] === 'pending') badge-warning
-                                            @elseif($app['status'] === 'accepted') badge-success
-                                            @elseif($app['status'] === 'rejected') badge-danger
+                                            @if($application->status === 'pending') badge-warning
+                                            @elseif($application->status === 'accepted') badge-success
+                                            @elseif($application->status === 'rejected') badge-danger
                                             @else badge-neutral
                                             @endif
                                         " style="padding: 6px 12px; font-size: 14px;">
-                                            {{ strtoupper($app['status']) }}
+                                            {{ strtoupper($application->status) }}
                                         </div>
 
-                                        @if($app['status'] === 'pending' && $vacancy['status'] === 'open')
+                                        @if($application->status === 'pending' && $vacancy->status === 'open')
                                             <div class="flex flex-col gap-2 w-full mt-4">
-                                                <form method="POST" action="{{ route('employer.applications.status', ['vacancyId' => $vacancy['id'], 'applicationId' => $app['id']]) }}">
+                                                <form method="POST" action="{{ route('employer.applications.status', ['vacancyId' => $vacancy->id, 'applicationId' => $application->id]) }}">
                                                     @csrf
                                                     <input type="hidden" name="status" value="accepted">
                                                     <button
@@ -118,7 +123,7 @@
                                                         Принять
                                                     </button>
                                                 </form>
-                                                <form method="POST" action="{{ route('employer.applications.status', ['vacancyId' => $vacancy['id'], 'applicationId' => $app['id']]) }}">
+                                                <form method="POST" action="{{ route('employer.applications.status', ['vacancyId' => $vacancy->id, 'applicationId' => $application->id]) }}">
                                                     @csrf
                                                     <input type="hidden" name="status" value="rejected">
                                                     <button type="submit" class="btn btn-danger w-full justify-center">Отклонить</button>
@@ -126,10 +131,10 @@
                                             </div>
                                         @endif
 
-                                        @if($app['status'] === 'accepted')
-                                            <button type="button" class="btn btn-primary w-full mt-4 justify-center" disabled>
-                                                Чат создан
-                                            </button>
+                                        @if($application->status === 'accepted')
+                                            <a href="{{ route('chats') }}" class="btn btn-primary w-full mt-4 justify-center">
+                                                Перейти в чаты
+                                            </a>
                                         @endif
                                     </div>
                                 </div>

@@ -2,12 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Chat\StoreMessageRequest;
 use App\Models\Chat;
 use App\Models\Message;
+use App\Models\User;
+use App\Notifications\NewChatMessageNotification;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class ChatController extends Controller
@@ -17,19 +22,6 @@ class ChatController extends Controller
         Carbon::setLocale('ru');
 
         $currentUser = auth()->user();
-        $canAccess = $currentUser && in_array($currentUser->role, ['freelancer', 'employer'], true);
-
-        if (! $canAccess) {
-            return view('chat', [
-                'currentUser' => $currentUser,
-                'canAccess' => false,
-                'chat' => null,
-                'otherUser' => null,
-                'vacancy' => null,
-                'chatMessages' => collect(),
-                'notFound' => false,
-            ]);
-        }
 
         if (! Schema::hasTable('chats') || ! Schema::hasTable('messages')) {
             return view('chat', [
@@ -47,7 +39,7 @@ class ChatController extends Controller
             ->with(['vacancy', 'employer', 'freelancer', 'messages.sender'])
             ->find($chatId);
 
-        if (! $chat || ! $this->isParticipant($chat, (int) $currentUser->id)) {
+        if (! $chat) {
             return view('chat', [
                 'currentUser' => $currentUser,
                 'canAccess' => true,
@@ -58,6 +50,8 @@ class ChatController extends Controller
                 'notFound' => true,
             ]);
         }
+
+        $this->authorize('view', $chat);
 
         $otherUser = $currentUser->role === 'freelancer' ? $chat->employer : $chat->freelancer;
         $chatMessages = $chat->messages->sortBy('created_at')->values();
@@ -73,41 +67,75 @@ class ChatController extends Controller
         ]);
     }
 
-    public function store(Request $request, string $chatId): RedirectResponse
+    public function store(StoreMessageRequest $request, string $chatId): RedirectResponse
     {
-        $currentUser = auth()->user();
-
-        if (! $currentUser || ! in_array($currentUser->role, ['freelancer', 'employer'], true)) {
-            abort(403);
-        }
-
         if (! Schema::hasTable('chats') || ! Schema::hasTable('messages')) {
             return redirect()
                 ->route('chat.show', ['chat' => $chatId])
                 ->with('chat_error', 'Чат недоступен: таблицы сообщений пока не созданы.');
         }
 
-        $chat = Chat::find($chatId);
+        $chat = Chat::query()->find($chatId);
 
-        if (! $chat || ! $this->isParticipant($chat, (int) $currentUser->id)) {
+        if (! $chat) {
             abort(404);
         }
 
-        $data = $request->validate([
-            'text' => ['required', 'string', 'max:5000'],
+        $this->authorize('sendMessage', $chat);
+
+        $senderId = (int) auth()->id();
+        $message = Message::query()->create([
+            'chat_id' => $chat->id,
+            'sender_user_id' => $senderId,
+            'text' => $request->validated('text'),
         ]);
 
-        Message::create([
-            'chat_id' => $chat->id,
-            'sender_user_id' => $currentUser->id,
-            'text' => trim((string) $data['text']),
-        ]);
+        $recipientId = $senderId === (int) $chat->employer_user_id
+            ? (int) $chat->freelancer_user_id
+            : (int) $chat->employer_user_id;
+
+        $recipient = User::query()->find($recipientId);
+
+        if ($recipient && ! $recipient->is_blocked) {
+            $recipient->notify(new NewChatMessageNotification(
+                senderName: (string) auth()->user()?->name,
+                preview: Str::limit((string) $message->text, 120),
+                chatUrl: route('chat.show', ['chat' => $chat->id]),
+            ));
+        }
 
         return redirect()->route('chat.show', ['chat' => $chat->id]);
     }
 
-    private function isParticipant(Chat $chat, int $userId): bool
+    public function messages(Request $request, string $chatId): JsonResponse
     {
-        return (int) $chat->employer_user_id === $userId || (int) $chat->freelancer_user_id === $userId;
+        if (! Schema::hasTable('chats') || ! Schema::hasTable('messages')) {
+            return response()->json(['messages' => []]);
+        }
+
+        $chat = Chat::query()->find($chatId);
+
+        if (! $chat) {
+            abort(404);
+        }
+
+        $this->authorize('view', $chat);
+
+        $afterId = max(0, (int) $request->query('after', 0));
+
+        $messages = Message::query()
+            ->where('chat_id', $chat->id)
+            ->when($afterId > 0, static fn ($query) => $query->where('id', '>', $afterId))
+            ->orderBy('id')
+            ->get(['id', 'sender_user_id', 'text', 'created_at'])
+            ->map(static fn (Message $message): array => [
+                'id' => (int) $message->id,
+                'sender_user_id' => (int) $message->sender_user_id,
+                'text' => (string) $message->text,
+                'time' => $message->created_at?->format('H:i') ?? '',
+            ])
+            ->values();
+
+        return response()->json(['messages' => $messages]);
     }
 }
