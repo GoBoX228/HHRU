@@ -31,7 +31,7 @@ class RegisterRequest extends FormRequest
         return [
             'role' => ['required', 'in:freelancer,employer'],
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'email' => ['required', 'email:filter', 'max:255', 'unique:users,email'],
             'phone' => ['required', 'string', 'max:50', 'regex:/^[0-9+()\-\s]{7,20}$/', 'unique:users,phone'],
             'company_name' => ['required_if:role,employer', 'nullable', 'string', 'max:255'],
             'company_field' => ['required_if:role,employer', 'nullable', 'string', 'max:255'],
