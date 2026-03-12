@@ -43,4 +43,64 @@ class RegisterRequest extends FormRequest
             ],
         ];
     }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'role.required' => 'Выберите тип аккаунта.',
+            'role.in' => 'Некорректный тип аккаунта.',
+
+            'name.required' => 'Введите ФИО.',
+            'name.string' => 'Поле "ФИО" должно быть строкой.',
+            'name.max' => 'ФИО не должно превышать :max символов.',
+
+            'email.required' => 'Введите email.',
+            'email.email' => 'Введите корректный email.',
+            'email.max' => 'Email не должен превышать :max символов.',
+            'email.unique' => 'Пользователь с таким email уже существует.',
+
+            'phone.required' => 'Введите номер телефона.',
+            'phone.string' => 'Поле "номер телефона" должно быть строкой.',
+            'phone.max' => 'Номер телефона не должен превышать :max символов.',
+            'phone.regex' => 'Введите корректный номер телефона.',
+            'phone.unique' => 'Пользователь с таким номером телефона уже существует.',
+
+            'company_name.required_if' => 'Введите название компании.',
+            'company_name.string' => 'Поле "название компании" должно быть строкой.',
+            'company_name.max' => 'Название компании не должно превышать :max символов.',
+
+            'company_field.required_if' => 'Введите направление компании.',
+            'company_field.string' => 'Поле "направление компании" должно быть строкой.',
+            'company_field.max' => 'Направление компании не должно превышать :max символов.',
+
+            'password.required' => 'Введите пароль.',
+            'password.string' => 'Поле "пароль" должно быть строкой.',
+            'password.confirmed' => 'Пароли не совпадают.',
+            'password.min' => 'Пароль должен содержать минимум :min символов.',
+            'password.letters' => 'Пароль должен содержать хотя бы одну букву.',
+            'password.mixed' => 'Пароль должен содержать буквы в разных регистрах.',
+            'password.mixed_case' => 'Пароль должен содержать буквы в разных регистрах.',
+            'password.numbers' => 'Пароль должен содержать хотя бы одну цифру.',
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function attributes(): array
+    {
+        return [
+            'role' => 'тип аккаунта',
+            'name' => 'ФИО',
+            'email' => 'email',
+            'phone' => 'номер телефона',
+            'company_name' => 'название компании',
+            'company_field' => 'направление компании',
+            'password' => 'пароль',
+            'password_confirmation' => 'подтверждение пароля',
+        ];
+    }
 }

@@ -178,7 +178,7 @@
                                                 <div class="table-main">{{ $vacancy->employer?->name ?? 'Неизвестно' }}</div>
                                             </td>
                                             <td>
-                                                <span class="badge {{ $statusClass }}">{{ mb_strtoupper((string) $vacancy->status) }}</span>
+                                                <span class="badge {{ $statusClass }}">{{ match($vacancy->status) { 'open' => 'Открыта', 'draft' => 'Черновик', 'closed' => 'Закрыта', 'archived' => 'В архиве', default => (string) $vacancy->status, } }}</span>
                                             </td>
                                             <td class="text-right">
                                                 <div class="flex items-center justify-end gap-2">

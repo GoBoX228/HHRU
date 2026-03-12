@@ -128,6 +128,106 @@ const initChatPage = () => {
     window.addEventListener('beforeunload', () => clearInterval(pollTimer));
 };
 
+const initVacancyFilters = () => {
+    const filtersForm = document.querySelector('[data-vacancies-filters]');
+    if (!filtersForm) {
+        return;
+    }
+
+    const specializationSelect = filtersForm.querySelector('select[name="specialization"]');
+    if (!specializationSelect) {
+        return;
+    }
+
+    specializationSelect.addEventListener('change', () => {
+        filtersForm.requestSubmit();
+    });
+};
+const initVacancyCreatePage = () => {
+    const skillsInput = document.querySelector('[data-vacancy-skills-input]');
+    const skillSelect = document.querySelector('[data-vacancy-skill-select]');
+    const selectedSkillsContainer = document.querySelector('[data-vacancy-skills-selected]');
+
+    if (!skillsInput || !skillSelect || !selectedSkillsContainer) {
+        return;
+    }
+
+    const emptyHintText = selectedSkillsContainer.querySelector('[data-vacancy-skills-empty]')?.textContent?.trim() || 'No skills selected';
+
+    const parseSkills = (value) => value
+        .split(',')
+        .map((skill) => skill.trim())
+        .filter(Boolean)
+        .filter((skill, index, array) => array.indexOf(skill) === index)
+        .slice(0, 20);
+
+    let selectedSkills = parseSkills(skillsInput.value || '');
+
+    const syncSkillsInput = () => {
+        skillsInput.value = selectedSkills.join(', ');
+    };
+
+    const renderSelectedSkills = () => {
+        selectedSkillsContainer.innerHTML = '';
+
+        if (selectedSkills.length === 0) {
+            const emptyHint = document.createElement('span');
+            emptyHint.className = 'text-sm text-muted';
+            emptyHint.dataset.vacancySkillsEmpty = 'true';
+            emptyHint.textContent = emptyHintText;
+            selectedSkillsContainer.appendChild(emptyHint);
+            return;
+        }
+
+        selectedSkills.forEach((skill) => {
+            const chip = document.createElement('span');
+            chip.className = 'badge badge-primary skill-chip';
+
+            const label = document.createElement('span');
+            label.textContent = skill;
+            chip.appendChild(label);
+
+            const removeButton = document.createElement('button');
+            removeButton.type = 'button';
+            removeButton.className = 'skill-chip-remove';
+            removeButton.dataset.vacancySkillRemove = skill;
+            removeButton.setAttribute('aria-label', `Remove skill ${skill}`);
+            removeButton.innerHTML = '&times;';
+            chip.appendChild(removeButton);
+
+            selectedSkillsContainer.appendChild(chip);
+        });
+    };
+
+    const addSelectedSkill = () => {
+        const skill = skillSelect.value.trim();
+        if (!skill || selectedSkills.includes(skill) || selectedSkills.length >= 20) {
+            return;
+        }
+
+        selectedSkills.push(skill);
+        syncSkillsInput();
+        renderSelectedSkills();
+        skillSelect.value = '';
+    };
+
+    skillSelect.addEventListener('change', addSelectedSkill);
+
+    selectedSkillsContainer.addEventListener('click', (event) => {
+        const target = event.target.closest('[data-vacancy-skill-remove]');
+        if (!target) {
+            return;
+        }
+
+        const skill = target.dataset.vacancySkillRemove;
+        selectedSkills = selectedSkills.filter((item) => item !== skill);
+        syncSkillsInput();
+        renderSelectedSkills();
+    });
+
+    syncSkillsInput();
+    renderSelectedSkills();
+};
 const initProfilePage = () => {
     const openButton = document.querySelector('[data-profile-edit-open]');
     const cancelButton = document.querySelector('[data-profile-edit-cancel]');
@@ -149,7 +249,7 @@ const initProfilePage = () => {
         return;
     }
 
-    const emptyHintText = selectedSkillsContainer.querySelector('[data-skills-empty]')?.textContent?.trim() || 'Навыки не выбраны';
+    const emptyHintText = selectedSkillsContainer.querySelector('[data-skills-empty]')?.textContent?.trim() || 'No skills selected';
 
     const parseSkills = (value) => value
         .split(',')
@@ -188,7 +288,7 @@ const initProfilePage = () => {
             removeButton.type = 'button';
             removeButton.className = 'skill-chip-remove';
             removeButton.dataset.skillRemove = skill;
-            removeButton.setAttribute('aria-label', `Удалить навык ${skill}`);
+            removeButton.setAttribute('aria-label', `Remove skill ${skill}`);
             removeButton.innerHTML = '&times;';
             chip.appendChild(removeButton);
 
@@ -245,6 +345,8 @@ const initProfilePage = () => {
 
 const boot = () => {
     initChatPage();
+    initVacancyFilters();
+    initVacancyCreatePage();
     initProfilePage();
 };
 
@@ -253,3 +355,4 @@ if (document.readyState === 'loading') {
 } else {
     boot();
 }
+

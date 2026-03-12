@@ -129,7 +129,7 @@ class MvpDemoSeeder extends Seeder
                 ],
                 [
                     'cover_letter' => "I can complete vacancy #{$index}.",
-                    'status' => 'accepted',
+                    'status' => 'pending',
                 ]
             );
         })->values();

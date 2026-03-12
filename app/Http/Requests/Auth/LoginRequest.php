@@ -29,4 +29,30 @@ class LoginRequest extends FormRequest
             'remember' => ['nullable', 'boolean'],
         ];
     }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'email.required' => 'Введите email.',
+            'email.email' => 'Введите корректный email.',
+            'password.required' => 'Введите пароль.',
+            'password.string' => 'Поле "пароль" должно быть строкой.',
+            'remember.boolean' => 'Некорректное значение поля "Запомнить меня".',
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function attributes(): array
+    {
+        return [
+            'email' => 'email',
+            'password' => 'пароль',
+            'remember' => 'запомнить меня',
+        ];
+    }
 }

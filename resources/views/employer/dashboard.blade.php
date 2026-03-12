@@ -8,6 +8,65 @@
             Доступ запрещен. Только для работодателей.
         </div>
     @else
+        @php
+            $availableVacancySpecializations = [
+                'Frontend разработчик',
+                'Backend разработчик',
+                'Fullstack разработчик',
+                'Mobile разработчик',
+                'DevOps инженер',
+                'QA инженер',
+                'UI/UX дизайнер',
+                'Data Analyst',
+                'Data Scientist',
+                'Project Manager',
+                'Product Manager',
+                'Бизнес-аналитик',
+                'Системный администратор',
+                'Кибербезопасность',
+            ];
+            $selectedVacancySpecialization = old('specialization', '');
+            $availableVacancySkills = [
+                'PHP',
+                'Laravel',
+                'JavaScript',
+                'TypeScript',
+                'React',
+                'Vue.js',
+                'Node.js',
+                'HTML',
+                'CSS',
+                'Tailwind CSS',
+                'Sass',
+                'Bootstrap',
+                'MySQL',
+                'PostgreSQL',
+                'SQLite',
+                'Redis',
+                'REST API',
+                'GraphQL',
+                'Docker',
+                'Git',
+                'Linux',
+                'Nginx',
+                'Apache',
+                'Python',
+                'Django',
+                'Java',
+                'Spring',
+                'C#',
+                '.NET',
+                'Go',
+                'DevOps',
+                'CI/CD',
+            ];
+            $selectedVacancySkills = collect(explode(',', (string) old('requiredSkills', '')))
+                ->map(static fn (string $skill): string => trim($skill))
+                ->filter()
+                ->unique()
+                ->take(20)
+                ->values();
+        @endphp
         <div class="flex justify-between items-center mb-8 employer-head">
             <div>
                 <h1 class="page-title">Мои вакансии</h1>
@@ -47,14 +106,19 @@
 
                     <div class="form-group">
                         <label class="form-label">Специализация</label>
-                        <input
-                            type="text"
-                            name="specialization"
-                            required
-                            value="{{ old('specialization') }}"
-                            class="form-control"
-                            placeholder="Например, Frontend"
-                        >
+                        <select name="specialization" required class="form-control">
+                            <option value="">Выберите специализацию...</option>
+                            @foreach($availableVacancySpecializations as $specializationOption)
+                                <option value="{{ $specializationOption }}" @selected($selectedVacancySpecialization === $specializationOption)>
+                                    {{ $specializationOption }}
+                                </option>
+                            @endforeach
+                            @if($selectedVacancySpecialization !== '' && !in_array($selectedVacancySpecialization, $availableVacancySpecializations, true))
+                                <option value="{{ $selectedVacancySpecialization }}" selected>
+                                    {{ $selectedVacancySpecialization }}
+                                </option>
+                            @endif
+                        </select>
                     </div>
 
                     <div class="form-group">
@@ -68,14 +132,45 @@
                     </div>
 
                     <div class="form-group" style="grid-column: span 2;">
-                        <label class="form-label">Требуемые навыки (через запятую, макс. 20)</label>
+                        <label class="form-label">Требуемые навыки (макс. 20)</label>
+                        <div class="skills-picker">
+                            <select id="vacancy-skill-select" class="form-control" data-vacancy-skill-select>
+                                <option value="">Выберите навык...</option>
+                                @foreach($availableVacancySkills as $skillOption)
+                                    <option value="{{ $skillOption }}">{{ $skillOption }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+
                         <input
-                            type="text"
+                            id="required-skills"
+                            type="hidden"
                             name="requiredSkills"
-                            value="{{ old('requiredSkills') }}"
-                            class="form-control"
-                            placeholder="React, TypeScript, Node.js..."
+                            value="{{ $selectedVacancySkills->implode(', ') }}"
+                            data-vacancy-skills-input
                         >
+
+                        <div class="skills-selected mt-2" data-vacancy-skills-selected>
+                            @if($selectedVacancySkills->isNotEmpty())
+                                @foreach($selectedVacancySkills as $selectedSkill)
+                                    <span class="badge badge-primary skill-chip">
+                                        {{ $selectedSkill }}
+                                        <button
+                                            type="button"
+                                            class="skill-chip-remove"
+                                            data-vacancy-skill-remove="{{ $selectedSkill }}"
+                                            aria-label="Удалить навык {{ $selectedSkill }}"
+                                        >
+                                            &times;
+                                        </button>
+                                    </span>
+                                @endforeach
+                            @else
+                                <span class="text-sm text-muted" data-vacancy-skills-empty>
+                                    Навыки не выбраны
+                                </span>
+                            @endif
+                        </div>
                     </div>
 
                     <div class="form-group">
@@ -156,7 +251,7 @@
                                         @else badge-danger
                                         @endif
                                     ">
-                                        {{ strtoupper($vacancy->status) }}
+                                        {{ match($vacancy->status) { 'open' => 'Открыта', 'draft' => 'Черновик', 'closed' => 'Закрыта', 'archived' => 'В архиве', default => (string) $vacancy->status, } }}
                                     </span>
                                 </div>
                                 <div class="text-sm text-muted">

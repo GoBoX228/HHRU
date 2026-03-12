@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Vacancy;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
@@ -19,7 +20,9 @@ class HomePageController extends Controller
 
         $query = Vacancy::query()
             ->with('employerProfile')
-            ->where('status', 'open');
+            ->where('status', 'open')
+            ->whereDoesntHave('applications', static fn (Builder $applicationsQuery) => $applicationsQuery
+                ->where('status', 'accepted'));
 
         if ($searchTerm !== '') {
             $query->where(function ($inner) use ($searchTerm): void {
@@ -30,7 +33,7 @@ class HomePageController extends Controller
         }
 
         if ($specialization !== '') {
-            $query->where('specialization', $specialization);
+            $query->whereRaw('LOWER(TRIM(specialization)) = ?', [mb_strtolower($specialization)]);
         }
 
         $activeVacancies = $query
@@ -38,6 +41,9 @@ class HomePageController extends Controller
             ->get();
 
         $uniqueSpecializations = Vacancy::query()
+            ->where('status', 'open')
+            ->whereDoesntHave('applications', static fn (Builder $applicationsQuery) => $applicationsQuery
+                ->where('status', 'accepted'))
             ->whereNotNull('specialization')
             ->where('specialization', '!=', '')
             ->distinct()

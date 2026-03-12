@@ -7,7 +7,7 @@
                 <p class="page-subtitle">Откройте для себя возможности, соответствующие вашим навыкам.</p>
             </div>
 
-            <form method="GET" action="{{ route('home') }}" class="flex gap-4 home-filters">
+            <form method="GET" action="{{ route('home') }}" class="flex gap-4 home-filters" id="vacancies-filters-form" data-vacancies-filters>
                 <div class="search-wrap">
                     <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                         <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"></circle>
@@ -28,6 +28,9 @@
                         <option value="{{ $spec }}" @selected($specialization === $spec)>{{ $spec }}</option>
                     @endforeach
                 </select>
+
+                <button type="submit" class="btn btn-primary">&#1053;&#1072;&#1081;&#1090;&#1080;</button>
+                <a href="{{ route('home') }}" class="btn btn-outline">&#1057;&#1073;&#1088;&#1086;&#1089;&#1080;&#1090;&#1100;</a>
             </form>
         </div>
 
@@ -89,3 +92,4 @@
             @endif
         </div>
 @endsection
+

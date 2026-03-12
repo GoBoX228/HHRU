@@ -45,7 +45,7 @@
                                 </svg>
                                 Опубликовано {{ $vacancy->created_at?->diffForHumans() }}
                             </span>
-                            <span class="badge badge-primary">{{ strtoupper($vacancy->status) }}</span>
+                            <span class="badge badge-primary">{{ match($vacancy->status) { 'open' => 'Открыта', 'draft' => 'Черновик', 'closed' => 'Закрыта', 'archived' => 'В архиве', default => (string) $vacancy->status, } }}</span>
                         </div>
                     </div>
 
@@ -112,7 +112,7 @@
                                 </svg>
                                 <div>
                                     <h3 style="font-size: 18px; font-weight: 500; margin-bottom: 4px;">Вы откликнулись на эту позицию</h3>
-                                    <p style="margin-bottom: 8px;">Статус: <strong>{{ $existingApplication->status }}</strong></p>
+                                    <p style="margin-bottom: 8px;">Статус: <strong>{{ match($existingApplication->status) { 'pending' => 'На рассмотрении', 'accepted' => 'Принят', 'rejected' => 'Отклонен', 'canceled' => 'Отменен', default => (string) $existingApplication->status, } }}</strong></p>
                                     <p class="text-sm" style="opacity: 0.8;">
                                         Отклик отправлен {{ $existingApplication->created_at?->diffForHumans() }}
                                     </p>

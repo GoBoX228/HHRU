@@ -107,7 +107,7 @@
                                             @else badge-neutral
                                             @endif
                                         " style="padding: 6px 12px; font-size: 14px;">
-                                            {{ strtoupper($application->status) }}
+                                            {{ match($application->status) { 'pending' => 'На рассмотрении', 'accepted' => 'Принят', 'rejected' => 'Отклонен', 'canceled' => 'Отменен', default => (string) $application->status, } }}
                                         </div>
 
                                         @if($application->status === 'pending' && $vacancy->status === 'open')
